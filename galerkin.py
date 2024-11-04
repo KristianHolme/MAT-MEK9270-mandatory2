@@ -339,7 +339,7 @@ class NeumannLegendre(Composite, Legendre):
         Legendre.__init__(self, N, domain=domain)
         self.B = Neumann(bc, domain, self.reference_domain)
         self.constraint = constraint
-        coeffs = np.array([j*(j+1)/((j+2)*(j+3)) for j in range(1,N+1+1)])
+        coeffs = np.array([-j*(j+1)/((j+2)*(j+3)) for j in range(N+1)])
         self.S = sparse.diags((1, coeffs), (0, 2), shape=(N+1, N+3), format='csr')
     #this was changed
 
@@ -354,8 +354,7 @@ class NeumannLegendre(Composite, Legendre):
         Xj = map_reference_domain(xj, self.domain, self.reference_domain)
         P = self.eval_basis_function_all(Xj)
         helper_integral = sp.integrate(self.B.x, (x, self.domain[0], self.domain[1]))
-        L = self.domain[1]-self.domain[0]
-        return P @ uh + self.B.Xl(Xj) + (self.constraint-helper_integral)/L
+        return P @ uh + self.B.Xl(Xj) #+ (self.constraint-helper_integral)/self.domain_factor
     #this was added
 
 
@@ -377,7 +376,7 @@ class NeumannChebyshev(Composite, Chebyshev):
         Chebyshev.__init__(self, N, domain=domain)
         self.B = Neumann(bc, domain, self.reference_domain)
         self.constraint = constraint
-        coeffs = np.array([(j/(j+2))**2 for j in range(0,N+1)])
+        coeffs = np.array([-(j/(j+2))**2 for j in range(0,N+1)])
         self.S = sparse.diags((1, coeffs), (0, 2), shape=(N+1, N+3), format='csr')
     #this was changed
 
@@ -393,7 +392,7 @@ class NeumannChebyshev(Composite, Chebyshev):
         P = self.eval_basis_function_all(Xj)
         helper_integral = sp.integrate(self.B.x, (x, self.domain[0], self.domain[1]))
         L = self.domain[1]-self.domain[0]
-        return P @ uh + self.B.Xl(Xj) + (self.constraint-helper_integral)/L
+        return P @ uh + self.B.Xl(Xj) #+ (self.constraint-helper_integral)/L
     #this was added
 
 
@@ -510,14 +509,6 @@ def test_helmholtz():
         A = inner(u.diff(2), v) + inner(u, v)
         b = inner(f-(V.B.x.diff(x, 2)+V.B.x), v)
         u_tilde = np.linalg.solve(A, b)
-        # xs = np.linspace(domain[0], domain[1], 200)
-        # u_tilde_xs = V.eval(u_tilde, xs)
-        # u_xs = sp.lambdify(x, ue)(xs)
-        # plt.plot(xs, u_tilde_xs, label=f'{V.__class__.__name__}')
-        # plt.plot(xs, u_xs, '--', label=f'exact')
-        # plt.legend()
-        # plt.grid()
-        # plt.show()
         err = L2_error(u_tilde, ue, V)
         print(
             f'test_helmholtz: L2 error = {err:2.4e}, N = {N}, {V.__class__.__name__}')
@@ -544,23 +535,6 @@ def test_convection_diffusion():
 
 
 if __name__ == '__main__':
-    # test_project()
-    # test_convection_diffusion()
-    # test_helmholtz()
-    ue = 4*x**3 - 3*x**2 + 2*x + 1
-    f = ue
-    domain = (-1, 4)
-    constraint = sp.integrate(ue, (x, domain[0], domain[1]))
-    space = NeumannChebyshev
-    if space in (NeumannChebyshev, NeumannLegendre, Cosines):
-        bc = ue.diff(x, 1).subs(x, domain[0]), ue.diff(
-            x, 1).subs(x, domain[1])
-    else:
-        bc = ue.subs(x, domain[0]), ue.subs(x, domain[1])
-    N = 60 if space in (Sines, Cosines) else 12
-    V = space(N, domain=domain, bc=bc, constraint=constraint)
-    u = TrialFunction(V)
-    v = TestFunction(V)
-    A = inner(u, v)
-    b = inner(f-(V.B.x), v)
-    u_tilde = np.linalg.solve(A, b)
+    test_project()
+    test_convection_diffusion()
+    test_helmholtz()
